@@ -1,0 +1,118 @@
+---
+title: "Midterm project"
+author: "Sutong Zhang"
+date: "2022-12-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+library(readr)
+library(tidyverse)
+library(stringr)
+library(rstanarm)
+library(knitr)
+library(magrittr)
+library(kableExtra)
+library(gridExtra)
+library(lubridate)
+library(car) 
+library(lme4)
+library(arm)
+library(lmerTest)
+library(lattice)
+require(gridExtra)
+library(ggplot2)
+library(PerformanceAnalytics)
+library(rstanarm)
+library(merTools)
+library(dplyr)
+```
+
+EDA
+```{r}
+#read data
+streamer <- read.csv("~/Downloads/twitchdata-update.csv", header = TRUE)
+top150_streamer <- head(streamer, n =150)
+
+#plot stream minutes against followers gained
+minutes_by_language <- ggplot(data = top150_streamer) + 
+  aes(x = log(Stream.time.minutes. + 1), y = log(Followers.gained)) + 
+  geom_point(aes(color = factor(Language)), size = .6) + 
+  geom_smooth(aes(color = factor(Language)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(a) Stream Minutes vs Followers Gained", x = "log(stream minutes)", y = "log(followers gained)")
+
+minutes_by_mature <- ggplot(data = top150_streamer) + 
+  aes(x = log(Stream.time.minutes. + 1), y = log(Followers.gained)) + 
+  geom_point(aes(color = factor(Mature)), size = .6) + 
+  geom_smooth(aes(color = factor(Mature)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(b) Stream Minutes vs Followers Gained", x = "log(stream minutes)", y = "log(followers gained)")
+
+#plot peak viewers against followers gained
+peak_by_language <- ggplot(data = top150_streamer) + 
+  aes(x = log(Peak.viewers + 1), y = log(Followers.gained)) + 
+  geom_point(aes(color = factor(Language)), size = .6) + 
+  geom_smooth(aes(color = factor(Language)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(a) Peak viewers vs Followers Gained", x = "log(peak viewers)", y = "log(followers gained)")
+
+peak_by_mature <- ggplot(data = top150_streamer) + 
+  aes(x = log(Peak.viewers + 1), y = log(Followers.gained)) + 
+  geom_point(aes(color = factor(Mature)), size = .6) + 
+  geom_smooth(aes(color = factor(Mature)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(b) Peak Viewers vs Followers Gained", x = "log(peak viewers)", y = "log(followers gained)")
+
+#Relationship between Watch minutes and Stream minutes
+watch_stream <- ggplot(data = top150_streamer) + 
+  aes(x = Stream.time.minutes., y = Watch.time.Minutes.) + 
+  geom_point() + 
+  geom_smooth(formula = 'y ~ x', method = "lm") + 
+  labs(titile = "Watch time vs Stream time", x = "stream minutes", y = "watch minutes")
+
+#plot followers against followers gained
+followers_by_language <- ggplot(data = top150_streamer) + 
+  aes(x = log(Followers + 1), y = log(Followers.gained)) + 
+  geom_point(aes(color = factor(Language)), size = .6) + 
+  geom_smooth(aes(color = factor(Language)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(a) Followers vs Followers Gained", x = "log(followers)", y = "log(followers gained)")
+
+followers_by_mature <- ggplot(data = top150_streamer) + 
+  aes(x = log(Followers + 1), y = log(Followers.gained)) + 
+  geom_point(aes(color = factor(Mature)), size = .6) + 
+  geom_smooth(aes(color = factor(Mature)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(b) Followers vs Followers Gained", x = "log(followers)", y = "log(followers gained)")
+
+#plot views gained against followers gained
+view_by_language <- ggplot(data = top150_streamer) + 
+  aes(x = log(Views.gained + 1), y = log(Followers.gained)) + 
+  geom_point(aes(color = factor(Language)), size = .6) + 
+  geom_smooth(aes(color = factor(Language)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(a) Views Gained vs Followers Gained", x = "log(views gained)", y = "log(followers gained)")
+
+view_by_mature <- ggplot(data = top150_streamer) + 
+  aes(x = log(Views.gained + 1), y = log(Followers.gained)) + 
+  geom_point(aes(color = factor(Mature)), size = .6) + 
+  geom_smooth(aes(color = factor(Mature)), method = "lm", se = FALSE, formula = 'y ~ x') + 
+  labs(title = "(b) Views gained vs Followers Gained", x = "log(views gained)", y = "log(followers gained)")
+
+```
+
+Model Fitting
+```{r}
+log_top150 <- top150_streamer %>% dplyr::select(Channel, Stream.time.minutes., Peak.viewers, Average.viewers, Followers, Followers.gained, Views.gained, Mature, Language) %>% data.frame()
+log_top150$Mature <- factor(log_top150$Mature)
+log_top150$Language <- factor(log_top150$Language)
+log_top150$Stream.time.minutes. <- log(log_top150$Stream.time.minutes. + 1)
+log_top150$Peak.viewers  <- log(log_top150$Peak.viewers + 1)
+log_top150$Average.viewers <- log(log_top150$Average.viewers + 1)
+log_top150$Followers <- log(log_top150$Followers + 1)
+log_top150$Followers.gained <- log(log_top150$Followers.gained + 1)
+log_top150$Views.gained <- log(log_top150$Views.gained+ 1)
+```
+
+```{r}
+chart.Correlation(log_top150[, 2:7], histogram=TRUE, pch=20)
+```
